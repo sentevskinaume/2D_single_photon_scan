@@ -12,15 +12,15 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 
-# from TimeTagger import (
-#     createTimeTagger,
-#     Countrate,
-#     Coincidences,
-#     ChannelEdge,
-#     SynchronizedMeasurements,
-#     Correlation,
-#     freeTimeTagger,
-# )
+from TimeTagger import (
+    createTimeTagger,
+    Countrate,
+    Coincidences,
+    ChannelEdge,
+    SynchronizedMeasurements,
+    Correlation,
+    freeTimeTagger,
+)
 
 clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.DeviceManagerCLI.dll")
 clr.AddReference("C:\\Program Files\\Thorlabs\\Kinesis\\Thorlabs.MotionControl.GenericMotorCLI.dll")
@@ -202,54 +202,52 @@ h_pos_start = 1 #mm
 h_pos = np.arange(h_pos_start, h_pos_start+5+horizontal_step, horizontal_step)
 v_pos = np.arange (0, int(vertical_range * 10000)+ vertical_step_units, vertical_step_units)+2000
 results=[]
-print(v_pos)
-# sys.exit()
 
-# #---------------------------------------------------------------
-# #---------------------------------------------------------------
-# # --- TimeTagger setup ---
-# tagger = createTimeTagger()
-# channels = [1, 2]
-# for ch in channels:
-#     tagger.setInputDelay(ch, 0)
+#---------------------------------------------------------------
+#---------------------------------------------------------------
+# --- TimeTagger setup ---
+tagger = createTimeTagger()
+channels = [1, 2]
+for ch in channels:
+    tagger.setInputDelay(ch, 0)
 
-# sync_meas = SynchronizedMeasurements(tagger)
-# sync_tagger = sync_meas.getTagger()
+sync_meas = SynchronizedMeasurements(tagger)
+sync_tagger = sync_meas.getTagger()
 
-# corr_list = []
-# for i in range(len(channels)):
-#     corr = Correlation(sync_tagger, channels[0], channels[i], 100, 1000)
-#     corr_list.append(corr)
+corr_list = []
+for i in range(len(channels)):
+    corr = Correlation(sync_tagger, channels[0], channels[i], 100, 1000)
+    corr_list.append(corr)
 
-# # Start measurements and accumulate data for 1 second
-# sync_meas.startFor(int(10e12))  # 1 s in ps
-# sync_meas.waitUntilFinished()
+# Start measurements and accumulate data for 1 second
+sync_meas.startFor(int(10e12))  # 1 s in ps
+sync_meas.waitUntilFinished()
 
-#     # Determine delays
-# delays = []
-# for corr in corr_list:
-#     hist_t = corr.getIndex()
-#     hist_c = corr.getData()
+    # Determine delays
+delays = []
+for corr in corr_list:
+    hist_t = corr.getIndex()
+    hist_c = corr.getData()
 
-#     if np.sum(hist_c) > 0:
-#         dt = np.sum(hist_t * hist_c) / np.sum(hist_c)
-#     else:
-#         dt = 0
-#     delays.append(int(dt))
-# print("Delays:", delays)
-# for ch, dt in zip(channels, delays):
-#     tagger.setInputDelay(ch, dt)
+    if np.sum(hist_c) > 0:
+        dt = np.sum(hist_t * hist_c) / np.sum(hist_c)
+    else:
+        dt = 0
+    delays.append(int(dt))
+print("Delays:", delays)
+for ch, dt in zip(channels, delays):
+    tagger.setInputDelay(ch, dt)
 
 
-# def measure_singles(measurement_time_s=1.0):
-#     with Countrate(tagger,channels) as rate:
-#         rate.startFor(int(measurement_time_s * 1e12))  # convert s -> ps
-#         rate.waitUntilFinished()
-#         data = rate.getData()
-#         ch1_cps = float(data[0])
-#         return [ch1_cps]
-# #---------------------------------------------------------------
-# #---------------------------------------------------------------
+def measure_singles(measurement_time_s=1.0):
+    with Countrate(tagger,channels) as rate:
+        rate.startFor(int(measurement_time_s * 1e12))  # convert s -> ps
+        rate.waitUntilFinished()
+        data = rate.getData()
+        ch1_cps = float(data[0])
+        return [ch1_cps]
+#---------------------------------------------------------------
+#---------------------------------------------------------------
 
 def main():
     piezo_device, chan1 = piezo()
@@ -259,12 +257,9 @@ def main():
     zero_piezo(piezo_device, chan1)
     
     for i, v in enumerate(v_pos):
-        # zero_piezo(piezo_device, chan1)
-        print(v)
         move_piezo(piezo_device,chan1, int(v))
-        time.sleep(5)
-        # while piezo_device.isBusy():
-        #     time.sleep(0.01)
+        while piezo_device.IsDeviceBusy():
+            time.sleep(0.01)
 
         if i % 2==0:
             h_scan = h_pos
@@ -273,28 +268,28 @@ def main():
 
         for h in h_scan:
             move_stepper(stepper_device, h)
-            # while stepper_device.isBusy():
-            #     time.sleep(0.01)
-            # counts = measure_singles(measurement_time_s = measurement_time_s)
-            # results.append({
-            #     "h_pos": h,
-            #     "v_step": i,
-            #     "counts":counts[0],
-            # })
-            # print(f"h={h:.2f} mm, v_step={v}, counts={counts[0]:.1f}")
+            while stepper_device.IsDeviceBusy():
+                time.sleep(0.01)
+            counts = measure_singles(measurement_time_s = measurement_time_s)
+            results.append({
+                "h_pos": h,
+                "v_step": i,
+                "counts":counts[0],
+            })
+            print(f"h={h:.2f} mm, v_step={v}, counts={counts[0]:.1f}")
 
 
-    # df = pd.DataFrame(results)
-    # save_dir_path = os.path.join(os.path.expanduser("~"), "Desktop", "scan")
-    # os.makedirs(save_dir_path,exist_ok=True)
-    # file_name = "2D_scan_results.csv"
-    # save_path = os.path.join(save_dir_path,file_name)
-    # df.to_csv(save_path,index=False)
-    # print(f"Saved scan results to {save_path}")
+    df = pd.DataFrame(results)
+    save_dir_path = os.path.join(os.path.expanduser("~"), "Desktop", "scan")
+    os.makedirs(save_dir_path,exist_ok=True)
+    file_name = "2D_scan_results.csv"
+    save_path = os.path.join(save_dir_path,file_name)
+    df.to_csv(save_path,index=False)
+    print(f"Saved scan results to {save_path}")
 
-    # piezo_device.StopPolling()
-    # stepper_device.StopPolling()
-    # piezo_device.Disconnect()
-    # stepper_device.Disconnect()
+    piezo_device.StopPolling()
+    stepper_device.StopPolling()
+    piezo_device.Disconnect()
+    stepper_device.Disconnect()
 if __name__ == "__main__":
     main()
